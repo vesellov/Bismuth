@@ -64,6 +64,7 @@ def sql_trace_callback(log, id, statement):
 
 def bootstrap():
     # TODO: Candidate for single user mode
+    return True
     try:
         types = ['static/*.db-wal', 'static/*.db-shm']
         for t in types:

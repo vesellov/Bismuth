@@ -13,7 +13,7 @@ from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Signature import PKCS1_v1_5
 from Cryptodome.Hash import SHA
-from Crypto import Random
+from Cryptodome import Random
 
 if os.path.isfile("privkey.der"):
     print("privkey.der found")
@@ -25,8 +25,8 @@ else:
     key = RSA.generate(4096)
     public_key = key.publickey()
 
-    private_key_readable = str(key.exportKey())
-    public_key_readable = str(key.publickey().exportKey())
+    private_key_readable = str(key.exportKey().decode("utf-8"))
+    public_key_readable = str(key.publickey().exportKey().decode("utf-8"))
     address = hashlib.sha224(public_key_readable.encode("utf-8")).hexdigest()  # hashed public key
     # generate key pair and an address
 
@@ -44,22 +44,24 @@ else:
         f.write("{}\n".format(address))
 
 # import keys
-key = RSA.importKey(open('privkey.der').read())
+pkraw = open('privkey.der').read()
+key = RSA.importKey(pkraw)
 public_key = key.publickey()
-private_key_readable = str(key.exportKey())
-public_key_readable = str(key.publickey().exportKey())
+private_key_readable = str(key.exportKey().decode("utf-8"))
+public_key_readable = str(key.publickey().exportKey().decode("utf-8"))
 address = hashlib.sha224(public_key_readable.encode("utf-8")).hexdigest()
 
 print("Your address: {}".format(address))
 print("Your private key:\n {}".format(private_key_readable))
 print("Your public key:\n {}".format(public_key_readable))
-public_key_b64encoded = base64.b64encode(public_key_readable)
+public_key_b64encoded = base64.b64encode(public_key_readable.encode("utf-8"))
 # import keys
 
 timestamp = str(time.time())
 print("Timestamp: {}".format(timestamp))
 transaction = (timestamp, "genesis", address, str(float(100000000)), "genesis")
-h = SHA.new(str(transaction))
+print("Transaction: {}".format(transaction))
+h = SHA.new(str(transaction).encode("utf-8"))
 signer = PKCS1_v1_5.new(key)
 signature = signer.sign(h)
 signature_enc = base64.b64encode(signature)
@@ -84,7 +86,11 @@ else:
         mem_cur = mempool.cursor()
         mem_cur.execute("CREATE TABLE transactions (timestamp, address, recipient, amount, signature, public_key, operation, openfield)")
         mempool.commit()
+
+        conn.close()
         mempool.close()
+        cursor = None
+        mem_cur = None
 
         print("Genesis created.")
     except sqlite3.Error as e:
