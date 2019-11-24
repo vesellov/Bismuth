@@ -8,8 +8,9 @@ SLEN = 10
 def send(sdef, data, slen=SLEN):
     sdef.setblocking(1)
     # Make sure the packet is sent in one call
-
-    sdef.sendall(str(len(json.dumps(data))).encode("utf-8").zfill(slen) + json.dumps(data).encode("utf-8"))
+    raw = str(len(json.dumps(data))).encode("utf-8").zfill(slen) + json.dumps(data).encode("utf-8")
+    sdef.sendall(raw)
+    print('sent %r' % raw)
 
 if "Linux" in platform.system():
     READ_OR_ERROR = select.POLLIN | select.POLLPRI | select.POLLHUP | select.POLLERR | select.POLLNVAL
@@ -30,6 +31,7 @@ if "Linux" in platform.system():
                 raise RuntimeError("Socket POLLHUP")
             if (flag & (select.POLLIN|select.POLLPRI)):
                 data = sdef.recv(slen)
+                import pdb; pdb.set_trace();
                 if not data:
                     # POLLIN and POLLHUP are not exclusive. We can have both.
                     raise RuntimeError("Socket EOF")
@@ -63,6 +65,8 @@ if "Linux" in platform.system():
             segments = b''.join(chunks).decode("utf-8")
             return json.loads(segments)
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             """
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -84,7 +88,8 @@ else:
         ready = select.select([sdef], [], [sdef], timeout)
         if ready[0]:
             try:
-                data = int(sdef.recv(slen).decode())  # receive length
+                raw = sdef.recv(slen)
+                data = int(raw.decode('utf-8'))  # receive length
                 #print ("To receive: {}".format(data))
             except:
                 raise RuntimeError("Connection closed by the remote host")
@@ -108,7 +113,7 @@ else:
                 raise RuntimeError("Socket timeout")
 
         segments = b''.join(chunks).decode("utf-8")
-        #print(f"Received segments: {segments} from {sdef.getpeername()[0]}")
+        print(f"Received segments: {segments} from {sdef.getpeername()[0]}")
 
 
         return json.loads(segments)
