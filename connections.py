@@ -84,7 +84,7 @@ else:
         ready = select.select([sdef], [], [sdef], timeout)
         if ready[0]:
             try:
-                data = int(sdef.recv(slen))  # receive length
+                data = int(sdef.recv(slen).decode())  # receive length
                 #print ("To receive: {}".format(data))
             except:
                 raise RuntimeError("Connection closed by the remote host")
@@ -105,7 +105,7 @@ else:
                 chunks.append(chunk)
                 bytes_recd = bytes_recd + len(chunk)
             else:
-                 raise RuntimeError("Socket timeout")
+                raise RuntimeError("Socket timeout")
 
         segments = b''.join(chunks).decode("utf-8")
         #print(f"Received segments: {segments} from {sdef.getpeername()[0]}")

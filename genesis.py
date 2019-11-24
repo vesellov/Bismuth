@@ -17,6 +17,8 @@ from Cryptodome import Random
 
 DIFFICULTY = 16
 
+NEW_GENESIS = False
+
 
 if os.path.isfile("privkey.der"):
     print("privkey.der found")
