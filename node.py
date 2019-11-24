@@ -144,7 +144,7 @@ def recompress_ledger(node, rebuild=False, depth=15000):
         shutil.copy(node.hyper_path, node.ledger_path + '.temp')
         hyper = sqlite3.connect(node.ledger_path + '.temp')
     if node.trace_db_calls:
-       hyper.set_trace_callback(functools.partial(sql_trace_callback,node.logger.app_log,"HYPER"))
+        hyper.set_trace_callback(functools.partial(sql_trace_callback,node.logger.app_log,"HYPER"))
     hyper.text_factory = str
     hyp = hyper.cursor()
 

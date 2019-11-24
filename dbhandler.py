@@ -63,6 +63,7 @@ class DbHandler:
         self.SQL_TO_TRANSACTIONS = "INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
         self.SQL_TO_MISC = "INSERT INTO misc VALUES (?,?)"
 
+
     def last_block_hash(self):
         self.execute(self.c, "SELECT block_hash FROM transactions WHERE reward != 0 ORDER BY block_height DESC LIMIT 1;")
         result = self.c.fetchone()[0]

@@ -1,7 +1,7 @@
 port=5658
 verify=False
-version=regnet
-version_allow=mainnet0020,mainnet0021,mainnet0022,regnet
+version=mainnet0022
+version_allow=mainnet0020,mainnet0021,mainnet0022
 thread_limit=64
 rebuild_db=True
 debug=True
