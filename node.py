@@ -39,7 +39,7 @@ import wallet_keys
 from connections import send, receive
 from digest import *
 from essentials import fee_calculate, download_file
-from libs import node, logger, keys, client
+from libs import node as _node, logger, keys, client
 from fork import Fork
 
 #todo: migrate this to polysign\signer_crw.py
@@ -64,7 +64,6 @@ def sql_trace_callback(log, id, statement):
 
 def bootstrap():
     # TODO: Candidate for single user mode
-    return True
     try:
         types = ['static/*.db-wal', 'static/*.db-shm']
         for t in types:
@@ -72,11 +71,83 @@ def bootstrap():
                 os.remove(f)
                 print(f, "deleted")
 
-        archive_path = node.ledger_path + ".tar.gz"
-        download_file("https://bismuth.cz/ledger.tar.gz", archive_path)
+        # archive_path = node.ledger_path + ".tar.gz"
+        # download_file("https://bismuth.cz/ledger.tar.gz", archive_path)
+        # with tarfile.open(archive_path) as tar:
+        #     tar.extractall("static/")  # NOT COMPATIBLE WITH CUSTOM PATH CONFS
 
-        with tarfile.open(archive_path) as tar:
-            tar.extractall("static/")  # NOT COMPATIBLE WITH CUSTOM PATH CONFS
+        INITIAL_DIFFICULTY = 20
+        INITIAL_HYPER_DIFFICULTY = 20
+
+        hdd = sqlite3.connect('static/ledger.db', timeout=1)
+        hdd.text_factory = str
+        hdd.execute('PRAGMA case_sensitive_like = 1;')
+        hdd_cursor = hdd.cursor()
+        hdd_cursor.execute('CREATE TABLE IF NOT EXISTS "misc" ("block_height" INTEGER, "difficulty" TEXT)')
+        hdd_cursor.execute('CREATE TABLE IF NOT EXISTS "transactions" ("block_height" INTEGER, "timestamp" NUMERIC, "address" TEXT, "recipient" TEXT, "amount" NUMERIC, "signature" TEXT, "public_key" TEXT, "block_hash" TEXT, "fee" NUMERIC, "reward" NUMERIC, "operation" TEXT, "openfield" TEXT)')
+        hdd_cursor.execute('CREATE INDEX "Timestamp Index" ON "transactions" ("timestamp")')
+        hdd_cursor.execute('CREATE INDEX "Signature Index" ON "transactions" ("signature")')
+        hdd_cursor.execute('CREATE INDEX "Reward Index" ON "transactions" ("reward")')
+        hdd_cursor.execute('CREATE INDEX "Recipient Index" ON "transactions" ("recipient")')
+        hdd_cursor.execute('CREATE INDEX "Openfield Index" ON "transactions" ("openfield")')
+        hdd_cursor.execute('CREATE INDEX "Fee Index" ON "transactions" ("fee")')
+        hdd_cursor.execute('CREATE INDEX "Block Height Index" ON "transactions" ("block_height")')
+        hdd_cursor.execute('CREATE INDEX "Block Hash Index" ON "transactions" ("block_hash")')
+        hdd_cursor.execute('CREATE INDEX "Amount Index" ON "transactions" ("amount")')
+        hdd_cursor.execute('CREATE INDEX "Address Index" ON "transactions" ("address")')
+        hdd_cursor.execute('CREATE INDEX "Operation Index" ON "transactions" ("operation")')
+        hdd_cursor.execute('CREATE INDEX TXID4_Index ON transactions(substr(signature,1,4))')
+        hdd_cursor.execute('CREATE INDEX "Misc Block Height Index" on misc(block_height)')
+        hdd_cursor.execute("INSERT INTO misc (difficulty, block_height) VALUES ({},1)".format(INITIAL_DIFFICULTY))
+        hdd_cursor.execute("INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
+            '1', '1574712979.530888', 'genesis', 'bc33dfda25a44f11ad41875e8bac85a7e876436f1d308130e0bc00f6', '0',
+            'cacdDgpCAvSa04B9De522kvGmGKL1HG85XInoEwlSEOCGLPTI+lMjdc6VHPFakmyPFT5fosnWhdHJx8rAJh5UUmmZgNd6jFf1N5hom/PAJLGVyDmXXbcH1YzNvBXUJdwBV/M3YtK+t5hWr9D10tw3ahywNwQddAO4IJj6jeFuc9ApJUhRNpMy7PIgyaisMIJPylBGvSU4Wbyxx2DDSXTJ2kLHn4vJgRtpcSCTHFlCtVwVF0GpeWkwilKA+AgcFtLRvB4ead1w68diX+SocLXNueccAzlDnYL5h5C/QaP9AG8cBquHh4VLruBoXcRzKXjONKMIqhJKAgOdjo0Tmtrp7XH8PGYfmHAVChXHyE3lHm3qadAW5AFWNQigNHd5imlTl1Tz8wjBI/W5epag7WCr/s+3HkwdNY7eLiHCvp1lrWIuFqnLDVASIjIjMKffv+j3VKKXVh7wLeM4VuOqs6EQnmUpyXqQvJPz8ZJvaTWVzyVnEXteqfzG5UbSYhjZV10pDUlhxVfx3IfvdFzm8viZPTaI+8HNy8VWED0tLQRwlz/147aC2rtz0CBgO7tM3NdD9SGJzQ3l0iB055i32YREH+DpE9QpM9mDv+tAStNjE/ZuHsNehtOC3CED15N410aHtXyXC0VvbxL6bKH7FKeJEq+HcAHxVq5+JxJzsIE5pE=',
+            'LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQ0lqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUF2OUpSSmJ0REJsMTc3OTBxWjB1TwpTRW0rVUZFOXU3SENIb2JlblFmc0RNWEFyZ3J1dTFmdlM0VUh0RW55VFI0dnJsNGpybUxJNmVhaCtDTjZHSno0CnRja1ZTV2FQOTNWVm5iNkpPTStTdzdTckd6MHlOR1E5KzVRMXI2NXZNVjZKWWQrK3VTNjJPUDdkZHN1MzJGMTcKK2d0UEV2OUIrNUZ6bm9ya25BRzh2SitEVmFHSTh1RGt3bzFZSXlHL0VNVCtXaVZJcGI4UWZFNzlxK2NKdHF6agpkNklEYWFhdjdSWEpxZU04Q2ZTR05rYWFvSEZ0YStBZFV3Q0syVHdtOW5JZjBqRWxwVENHcnNjMzRLYVlMRGh0CmVWbkZSRWVsbGhyR2FiMmgwR3M2azdPbmJ5TXoxYkFhb0dGNk9acG45MEkwYmVGRmZuN3dnWXZJWUMwanNIcVEKZGowZlhhUGo1bGRETGR4bHJmWVBwcTVacXRyVEcyeU1FTmhYRzZYbFEyOENZS0psRGR3SmRFMHRTWm1pc1lnVwoxVnlEYkxtUjUzQ3JSR1dTTENrY05BSWlSRHYrM2ZSRXlWV0d3MmM3bEEwVHFueFJyN01rZFhiTjZiRDJSTVhECk00ZFBHWTZzZllMVU9OZGFUYS82ZkduR0NqTXRBNVZGTXpuUEhBcmdjSmpJSzZDeGJ6aTYxVnA0QzFJRzF4bk8KYkJIM1BtSUE3Qmh0ZEtWUmxucWZ2M1p6d1g0RFVEWEdLTm5qNVlKQ2pvUm9pUFN4ZW85ajM2OFBkRnU5OHVLcgpRTGpqZFo3b1hFMTVxVW5TeWIrWjdXQjlHNnBQT3dtRjQ0T0dka2lkQjRCS1pzb2Fzb09oUVBlMUhpVTVLdGh3CmlNQ0UzZnJiUDlJSTBtMWNWYWZUbHlVQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQ==',
+            'c5adf0949d1e678de1e9a8708045a474eb8022f8029bf01e7e975e5a', 0, 1, 1, 'genesis',
+        ))
+        hdd.commit()
+        hdd.close()
+
+        hyp = sqlite3.connect('static/hyper.db', timeout=1)
+        hyp.text_factory = str
+        hyp.execute('PRAGMA case_sensitive_like = 1;')
+        hyp_cursor = hyp.cursor()
+        hyp_cursor.execute('CREATE TABLE IF NOT EXISTS "misc" ("block_height" INTEGER, "difficulty" TEXT)')
+        hyp_cursor.execute('CREATE TABLE IF NOT EXISTS "transactions" ("block_height" INTEGER, "timestamp" NUMERIC, "address" TEXT, "recipient" TEXT, "amount" NUMERIC, "signature" TEXT, "public_key" TEXT, "block_hash" TEXT, "fee" NUMERIC, "reward" NUMERIC, "operation" TEXT, "openfield" TEXT)')
+        hyp_cursor.execute('CREATE INDEX "Timestamp Index" ON "transactions" ("timestamp")')
+        hyp_cursor.execute('CREATE INDEX "Signature Index" ON "transactions" ("signature")')
+        hyp_cursor.execute('CREATE INDEX "Reward Index" ON "transactions" ("reward")')
+        hyp_cursor.execute('CREATE INDEX "Recipient Index" ON "transactions" ("recipient")')
+        hyp_cursor.execute('CREATE INDEX "Openfield Index" ON "transactions" ("openfield")')
+        hyp_cursor.execute('CREATE INDEX "Fee Index" ON "transactions" ("fee")')
+        hyp_cursor.execute('CREATE INDEX "Block Height Index" ON "transactions" ("block_height")')
+        hyp_cursor.execute('CREATE INDEX "Block Hash Index" ON "transactions" ("block_hash")')
+        hyp_cursor.execute('CREATE INDEX "Amount Index" ON "transactions" ("amount")')
+        hyp_cursor.execute('CREATE INDEX "Address Index" ON "transactions" ("address")')
+        hyp_cursor.execute('CREATE INDEX "Operation Index" ON "transactions" ("operation")')
+        hyp_cursor.execute('CREATE INDEX TXID4_Index ON transactions(substr(signature,1,4))')
+        hyp_cursor.execute('CREATE INDEX "Misc Block Height Index" on misc(block_height)')
+        hyp_cursor.execute("INSERT INTO misc (difficulty, block_height) VALUES ({},1)".format(INITIAL_HYPER_DIFFICULTY))
+        hyp_cursor.execute("INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
+            '1', '1574712995.0991387', 'genesis', 'bc33dfda25a44f11ad41875e8bac85a7e876436f1d308130e0bc00f6', '0',
+            'FL87jYXoenwZwTM+ZDnITLBVQ+FITgTomVi89zTL8ZAUupXkV2YzAeFxKUFt73WviW1ni9psnAefMhi871nQQeIgCOnMKbHBr68W9Ucw0fThtkmH0fHX2JKXCPfg9Lr5pevKL/Wvkq5NaNl+az2L1ad8FwbjjIHE2goigk05JNVZnvvakxQ0HpkKDwvxU2xQm2Iz/R3XBmJJiTgrzn1cHwEHRhLEGfcufbxqYdmb7CH7dIQRqLCohPaJXUzv20nKSzS0SpgBl9lhlRmR+4lPewJV+hGeKtDZdr0D+HkvzxoRa0LfAOkDCm50ykoOvFCFoMekVFETv09zWnHh7NrDJKixqtOk0bTgBdRastfsBaFH5pcYsaQNke4QYDCZQ6COMlMlDahGAkM9anz3bVhI1mzcVr1kR9ayWuWmbLyqTAZ/2VuCHxspP2ns6Zp5KbMkUzFgMsePvW6L8+cXVzLYWB0h7FNJpDRdblCx9F8m/wDtxxr1Ti/alquUT4PDDpdMA10Dts2Okxqhd2PfbXkWUFm0TjINaUPrD4hHu1T1UIhoWtiXNyQCzvAymwJE8CLsHa0YBpCcXEe6tON6mbtQQk+6BkJv+cQ5CpIrgdBsbabu16lyZUgluEYIQXHtiNeF7bjMEFMVaKSGU6/ftbdqaYUqJ5Gnnta62QMCw2iSfxg=',
+            'LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQ0lqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUF2OUpSSmJ0REJsMTc3OTBxWjB1TwpTRW0rVUZFOXU3SENIb2JlblFmc0RNWEFyZ3J1dTFmdlM0VUh0RW55VFI0dnJsNGpybUxJNmVhaCtDTjZHSno0CnRja1ZTV2FQOTNWVm5iNkpPTStTdzdTckd6MHlOR1E5KzVRMXI2NXZNVjZKWWQrK3VTNjJPUDdkZHN1MzJGMTcKK2d0UEV2OUIrNUZ6bm9ya25BRzh2SitEVmFHSTh1RGt3bzFZSXlHL0VNVCtXaVZJcGI4UWZFNzlxK2NKdHF6agpkNklEYWFhdjdSWEpxZU04Q2ZTR05rYWFvSEZ0YStBZFV3Q0syVHdtOW5JZjBqRWxwVENHcnNjMzRLYVlMRGh0CmVWbkZSRWVsbGhyR2FiMmgwR3M2azdPbmJ5TXoxYkFhb0dGNk9acG45MEkwYmVGRmZuN3dnWXZJWUMwanNIcVEKZGowZlhhUGo1bGRETGR4bHJmWVBwcTVacXRyVEcyeU1FTmhYRzZYbFEyOENZS0psRGR3SmRFMHRTWm1pc1lnVwoxVnlEYkxtUjUzQ3JSR1dTTENrY05BSWlSRHYrM2ZSRXlWV0d3MmM3bEEwVHFueFJyN01rZFhiTjZiRDJSTVhECk00ZFBHWTZzZllMVU9OZGFUYS82ZkduR0NqTXRBNVZGTXpuUEhBcmdjSmpJSzZDeGJ6aTYxVnA0QzFJRzF4bk8KYkJIM1BtSUE3Qmh0ZEtWUmxucWZ2M1p6d1g0RFVEWEdLTm5qNVlKQ2pvUm9pUFN4ZW85ajM2OFBkRnU5OHVLcgpRTGpqZFo3b1hFMTVxVW5TeWIrWjdXQjlHNnBQT3dtRjQ0T0dka2lkQjRCS1pzb2Fzb09oUVBlMUhpVTVLdGh3CmlNQ0UzZnJiUDlJSTBtMWNWYWZUbHlVQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQ==',
+            'b348f7d6e99059b1529314eefbac2c3b620ec2a31fe5682b5b838ae8', 0, 1, 1, 'genesis',
+        ))
+        hyp.commit()
+        hyp.close()
+
+        index = sqlite3.connect('static/index.db', timeout=1)
+        index.text_factory = str
+        index.execute('PRAGMA case_sensitive_like = 1;')
+        index_cursor = index.cursor()
+        index_cursor.execute('CREATE TABLE tokens (block_height INTEGER, timestamp, token, address, recipient, txid, amount INTEGER)')
+        index_cursor.execute('CREATE TABLE aliases (block_height INTEGER, address, alias)')
+        index_cursor.execute('CREATE INDEX "Alias Index" ON "aliases" ("block_height", "address","alias")')
+        index_cursor.execute('CREATE INDEX "Token Index" ON "tokens" ("block_height","timestamp","token","address","recipient","txid","amount")')
+        index_cursor.execute('CREATE TABLE staking (block_height INTEGER, timestamp NUMERIC, address, balance, ip, port, pos_address)')
+        index.commit()
+        index.close()
 
     except:
         node.logger.app_log.warning("Something went wrong during bootstrapping, aborted")
@@ -605,6 +676,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
         timeout_operation = 120  # timeout
         timer_operation = time.time()  # start counting
+        received_block_height = 0
 
         while not node.peers.is_banned(peer_ip) and node.peers.version_allowed(peer_ip, node.version_allow) and client_instance.connected:
             try:
@@ -2000,7 +2072,7 @@ def add_indices(db_handler: dbhandler.DbHandler):
 
 if __name__ == "__main__":
     # classes
-    node = node.Node()
+    node = _node.Node()
     node.logger = logger.Logger()
     node.keys = keys.Keys()
 
