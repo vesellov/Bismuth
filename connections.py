@@ -31,7 +31,6 @@ if "Linux" in platform.system():
                 raise RuntimeError("Socket POLLHUP")
             if (flag & (select.POLLIN|select.POLLPRI)):
                 data = sdef.recv(slen)
-                import pdb; pdb.set_trace();
                 if not data:
                     # POLLIN and POLLHUP are not exclusive. We can have both.
                     raise RuntimeError("Socket EOF")
