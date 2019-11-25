@@ -62,6 +62,7 @@ if "Linux" in platform.system():
 
             poller.unregister(sdef)
             segments = b''.join(chunks).decode("utf-8")
+            print(f"recv {segments} from {sdef.getpeername()[0]}")
             return json.loads(segments)
         except Exception as e:
             import traceback
@@ -112,7 +113,5 @@ else:
                 raise RuntimeError("Socket timeout")
 
         segments = b''.join(chunks).decode("utf-8")
-        print(f"Received segments: {segments} from {sdef.getpeername()[0]}")
-
-
+        print(f"recv {segments} from {sdef.getpeername()[0]}")
         return json.loads(segments)
